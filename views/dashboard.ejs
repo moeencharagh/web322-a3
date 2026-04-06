@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Dashboard</title>
+
+  <style>
+    body {
+      font-family: Arial;
+      background: #eef2f7;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+    }
+
+    .container {
+      background: #ddd;
+      padding: 30px;
+      border-radius: 20px;
+      text-align: center;
+      width: 400px;
+    }
+
+    h1 {
+      margin-bottom: 20px;
+    }
+
+    .btn {
+      display: block;
+      width: 100%;
+      padding: 12px;
+      margin-top: 10px;
+      border-radius: 10px;
+      border: none;
+      cursor: pointer;
+      font-size: 16px;
+    }
+
+    .btn-tasks {
+      background: #2f6df6;
+      color: white;
+    }
+
+    .btn-logout {
+      background: #e6c9a8;
+    }
+  </style>
+</head>
+
+<body>
+
+  <div class="container">
+    <h1>Welcome <%= user.username %> 👋</h1>
+
+    <a href="/tasks">
+      <button class="btn btn-tasks">View Tasks</button>
+    </a>
+
+    <a href="/logout">
+      <button class="btn btn-logout">Logout</button>
+    </a>
+  </div>
+
+</body>
+</html>

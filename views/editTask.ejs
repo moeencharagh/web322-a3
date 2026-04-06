@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Edit Task</title>
+
+  <style>
+    body {
+      font-family: Arial;
+      background: #eef2f7;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+    }
+
+    .container {
+      background: #ddd;
+      padding: 30px;
+      border-radius: 20px;
+      width: 400px;
+    }
+
+    h1 {
+      color: #2f6df6;
+      margin-bottom: 20px;
+      text-align: center;
+    }
+
+    input, textarea, select {
+      width: 100%;
+      padding: 12px;
+      margin-bottom: 15px;
+      border-radius: 10px;
+      border: 1px solid #ccc;
+      font-size: 14px;
+    }
+
+    button {
+      width: 100%;
+      padding: 12px;
+      border-radius: 10px;
+      border: none;
+      background: #1e63e9;
+      color: white;
+      font-size: 16px;
+      cursor: pointer;
+    }
+
+    a {
+      display: block;
+      margin-top: 15px;
+      color: #1e63e9;
+      text-decoration: none;
+      text-align: center;
+    }
+  </style>
+</head>
+
+<body>
+
+  <div class="container">
+    <h1>Edit Task</h1>
+
+    <form method="POST" action="/tasks/edit/<%= task.id %>">
+
+      <input 
+        name="title" 
+        value="<%= task.title %>" 
+        required
+      >
+
+      <textarea name="description"><%= task.description %></textarea>
+
+      <input 
+        type="date" 
+        name="dueDate"
+        value="<%= task.dueDate ? task.dueDate.toISOString().split('T')[0] : '' %>"
+      >
+
+      <select name="status">
+        <option value="pending" <%= task.status === "pending" ? "selected" : "" %>>Pending</option>
+        <option value="completed" <%= task.status === "completed" ? "selected" : "" %>>Completed</option>
+      </select>
+
+      <button type="submit">Update Task</button>
+    </form>
+
+    <a href="/tasks">Back to Tasks</a>
+  </div>
+
+</body>
+</html>

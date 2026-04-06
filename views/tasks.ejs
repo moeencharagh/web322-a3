@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Tasks</title>
+  <style>
+    body {
+      font-family: Arial;
+      background: #eef2f7;
+      padding: 40px;
+    }
+
+    h1 {
+      color: #2f6df6;
+    }
+
+    .top-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .btn {
+      padding: 10px 15px;
+      border-radius: 8px;
+      border: none;
+      cursor: pointer;
+      margin-right: 5px;
+    }
+
+    .btn-blue {
+      background: #2f6df6;
+      color: white;
+    }
+
+    .btn-edit {
+      background: #7bd3ea;
+    }
+
+    .btn-delete {
+      background: #f28b82;
+    }
+
+    .btn-status {
+      background: #7ccccc;
+    }
+
+    .btn-logout {
+      background: #e6c9a8;
+    }
+
+    .btn-dashboard {
+      background: #5b4bc4;
+      color: white;
+    }
+
+    .card {
+      background: #ddd;
+      padding: 20px;
+      border-radius: 15px;
+      margin-top: 20px;
+    }
+
+    .status {
+      float: right;
+      background: #e6c9a8;
+      padding: 5px 10px;
+      border-radius: 20px;
+    }
+  </style>
+</head>
+
+<body>
+
+  <div class="top-bar">
+    <h1>Your Tasks</h1>
+    <a href="/tasks/add">
+      <button class="btn btn-blue">Add New Task</button>
+    </a>
+  </div>
+
+  <% tasks.forEach(task => { %>
+    <div class="card">
+      
+      <span class="status"><%= task.status %></span>
+
+      <h2><%= task.title %></h2>
+      <p><%= task.description %></p>
+      <p>Due: <%= task.dueDate ? task.dueDate.toDateString() : "N/A" %></p>
+
+      <!-- Edit -->
+      <a href="/tasks/edit/<%= task.id %>">
+        <button class="btn btn-edit">Edit</button>
+      </a>
+
+      <!-- Delete -->
+      <form style="display:inline;" method="POST" action="/tasks/delete/<%= task.id %>">
+        <button class="btn btn-delete">Delete</button>
+      </form>
+
+      <!-- Toggle -->
+      <form style="display:inline;" method="POST" action="/tasks/status/<%= task.id %>">
+        <button class="btn btn-status">
+          <%= task.status === "pending" ? "Mark as Completed" : "Mark as Pending" %>
+        </button>
+      </form>
+
+    </div>
+  <% }) %>
+
+  <br>
+
+  <a href="/dashboard">
+    <button class="btn btn-dashboard">Back to Dashboard</button>
+  </a>
+
+  <a href="/logout">
+    <button class="btn btn-logout">Logout</button>
+  </a>
+
+</body>
+</html>
