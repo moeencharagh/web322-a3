@@ -11,10 +11,12 @@
 * Date: TODAY
 *
 ********************************************************************************/
+
 const express = require("express");
 const mongoose = require("mongoose");
 const bcrypt = require("bcrypt");
 const session = require("client-sessions");
+const { Sequelize } = require("sequelize");
 require("dotenv").config();
 
 // Models
@@ -22,17 +24,38 @@ const User = require("./models/User");
 const Task = require("./models/Task");
 
 const app = express();
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 
-// MongoDB
+// ================= DATABASES =================
+
+// ✅ MongoDB (Users)
 mongoose.connect(process.env.MONGO_URI)
-  .then(() => console.log("MongoDB connected ✅"))
-  .catch(err => console.log(err));
+  .then(() => console.log("MongoDB connected "))
+  .catch(err => console.log("MongoDB error:", err));
 
-// View engine
+// ✅ PostgreSQL (Neon - Tasks)
+const sequelize = new Sequelize(process.env.PG_URI, {
+  dialect: "postgres",
+  protocol: "postgres",
+  dialectOptions: {
+    ssl: {
+      require: true,
+      rejectUnauthorized: false
+    }
+  }
+});
+
+// Sync PostgreSQL
+sequelize.sync()
+  .then(() => console.log("PostgreSQL synced "))
+  .catch(err => console.log("PostgreSQL error:", err));
+
+// ================= VIEW ENGINE =================
+
 app.set("view engine", "ejs");
 
-// Middleware
+// ================= MIDDLEWARE =================
+
 app.use(express.urlencoded({ extended: true }));
 
 app.use(session({
@@ -41,7 +64,8 @@ app.use(session({
   duration: 30 * 60 * 1000
 }));
 
-// Auth middleware
+// ================= AUTH MIDDLEWARE =================
+
 function ensureLogin(req, res, next) {
   if (!req.session.user) return res.redirect("/login");
   next();
@@ -72,28 +96,42 @@ app.post("/register", async (req, res) => {
 
   try {
     const hashedPassword = await bcrypt.hash(password, 10);
-    await User.create({ username, email, password: hashedPassword });
+
+    await User.create({
+      username,
+      email,
+      password: hashedPassword
+    });
+
     res.redirect("/login");
-  } catch {
-    res.send("User exists ");
+  } catch (err) {
+    console.log(err);
+    res.send("User already exists ");
   }
 });
 
 app.post("/login", async (req, res) => {
   const { username, password } = req.body;
 
-  const user = await User.findOne({ username });
-  if (!user) return res.send("User not found ");
+  try {
+    const user = await User.findOne({ username });
 
-  const match = await bcrypt.compare(password, user.password);
-  if (!match) return res.send("Wrong password ");
+    if (!user) return res.send("User not found ");
 
-  req.session.user = {
-    id: user._id,
-    username: user.username
-  };
+    const match = await bcrypt.compare(password, user.password);
 
-  res.redirect("/tasks");
+    if (!match) return res.send("Wrong password ");
+
+    req.session.user = {
+      id: user._id,
+      username: user.username
+    };
+
+    res.redirect("/tasks");
+  } catch (err) {
+    console.log(err);
+    res.send("Login error ");
+  }
 });
 
 app.get("/logout", (req, res) => {
@@ -105,11 +143,16 @@ app.get("/logout", (req, res) => {
 
 // View all tasks
 app.get("/tasks", ensureLogin, async (req, res) => {
-  const tasks = await Task.findAll({
-    where: { userId: req.session.user.id }
-  });
+  try {
+    const tasks = await Task.findAll({
+      where: { userId: req.session.user.id }
+    });
 
-  res.render("tasks", { tasks });
+    res.render("tasks", { tasks });
+  } catch (err) {
+    console.log(err);
+    res.send("Error loading tasks ");
+  }
 });
 
 // Add page
@@ -121,79 +164,104 @@ app.get("/tasks/add", ensureLogin, (req, res) => {
 app.post("/tasks/add", ensureLogin, async (req, res) => {
   const { title, description, dueDate } = req.body;
 
-  await Task.create({
-    title,
-    description,
-    dueDate,
-    userId: req.session.user.id
-  });
+  try {
+    await Task.create({
+      title,
+      description,
+      dueDate,
+      userId: req.session.user.id
+    });
 
-  res.redirect("/tasks");
+    res.redirect("/tasks");
+  } catch (err) {
+    console.log(err);
+    res.send("Error adding task ");
+  }
 });
 
 // Delete task
 app.post("/tasks/delete/:id", ensureLogin, async (req, res) => {
-  await Task.destroy({
-    where: {
-      id: req.params.id,
-      userId: req.session.user.id
-    }
-  });
+  try {
+    await Task.destroy({
+      where: {
+        id: req.params.id,
+        userId: req.session.user.id
+      }
+    });
 
-  res.redirect("/tasks");
+    res.redirect("/tasks");
+  } catch (err) {
+    console.log(err);
+    res.send("Error deleting task ");
+  }
 });
 
-// ✏️ Edit page
+// Edit page
 app.get("/tasks/edit/:id", ensureLogin, async (req, res) => {
-  const task = await Task.findOne({
-    where: {
-      id: req.params.id,
-      userId: req.session.user.id
-    }
-  });
+  try {
+    const task = await Task.findOne({
+      where: {
+        id: req.params.id,
+        userId: req.session.user.id
+      }
+    });
 
-  res.render("editTask", { task });
+    res.render("editTask", { task });
+  } catch (err) {
+    console.log(err);
+    res.send("Error loading task ");
+  }
 });
 
-// ✏️ Update task
+// Update task
 app.post("/tasks/edit/:id", ensureLogin, async (req, res) => {
   const { title, description, dueDate } = req.body;
 
-  await Task.update(
-    { title, description, dueDate },
-    {
-      where: {
-        id: req.params.id,
-        userId: req.session.user.id
+  try {
+    await Task.update(
+      { title, description, dueDate },
+      {
+        where: {
+          id: req.params.id,
+          userId: req.session.user.id
+        }
       }
-    }
-  );
+    );
 
-  res.redirect("/tasks");
+    res.redirect("/tasks");
+  } catch (err) {
+    console.log(err);
+    res.send("Error updating task ");
+  }
 });
 
-//  Toggle status
+// Toggle status
 app.post("/tasks/status/:id", ensureLogin, async (req, res) => {
-  const task = await Task.findOne({
-    where: {
-      id: req.params.id,
-      userId: req.session.user.id
-    }
-  });
-
-  const newStatus = task.status === "pending" ? "completed" : "pending";
-
-  await Task.update(
-    { status: newStatus },
-    {
+  try {
+    const task = await Task.findOne({
       where: {
         id: req.params.id,
         userId: req.session.user.id
       }
-    }
-  );
+    });
 
-  res.redirect("/tasks");
+    const newStatus = task.status === "pending" ? "completed" : "pending";
+
+    await Task.update(
+      { status: newStatus },
+      {
+        where: {
+          id: req.params.id,
+          userId: req.session.user.id
+        }
+      }
+    );
+
+    res.redirect("/tasks");
+  } catch (err) {
+    console.log(err);
+    res.send("Error updating status ");
+  }
 });
 
 // ================= START =================
