@@ -59,10 +59,12 @@ function ensureLogin(req, res, next) {
 
 // ================= ROUTES =================
 
+// app.get("/", (req, res) => {
+//   res.send("Server is running 🚀");
+// });
 app.get("/", (req, res) => {
-  res.send("Server is running 🚀");
+  res.redirect("/login");
 });
-
 app.get("/login", (req, res) => {
   res.render("login");
 });
