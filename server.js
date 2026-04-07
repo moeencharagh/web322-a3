@@ -9,12 +9,12 @@ const express = require("express");
 const mongoose = require("mongoose");
 const bcrypt = require("bcryptjs");
 const session = require("client-sessions");
-const path = require("path"); // ✅ IMPORTANT
+const path = require("path");
 require("dotenv").config();
 
 // Models
 const User = require("./models/User");
-const { Task } = require("./models/Task");
+const { Task, sequelize } = require("./models/Task"); // ✅ FIXED
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -26,9 +26,13 @@ mongoose.connect(process.env.MONGO_URI)
   .then(() => console.log("MongoDB connected"))
   .catch(err => console.log("MongoDB error:", err));
 
+// ✅ FIXED: Sync PostgreSQL (VERY IMPORTANT)
+sequelize.sync({ alter: true })
+  .then(() => console.log("Postgres DB synced"))
+  .catch(err => console.log("Sequelize error:", err));
+
 // ================= VIEW ENGINE =================
 
-// ✅ FIXED FOR VERCEL
 app.set("views", path.join(__dirname, "views"));
 app.set("view engine", "ejs");
 
@@ -51,7 +55,6 @@ function ensureLogin(req, res, next) {
 
 // ================= ROUTES =================
 
-// ✅ Better root handling
 app.get("/", (req, res) => {
   if (req.session.user) {
     res.redirect("/tasks");
@@ -133,7 +136,7 @@ app.get("/tasks", ensureLogin, async (req, res) => {
 
     res.render("tasks", { tasks, user: req.session.user });
   } catch (err) {
-    console.log(err);
+    console.log("TASK ERROR:", err); // ✅ better logging
     res.send("Error loading tasks.");
   }
 });
@@ -247,10 +250,9 @@ app.post("/tasks/status/:id", ensureLogin, async (req, res) => {
 
 // ================= START =================
 
-// ✅ REQUIRED FOR VERCEL
 module.exports = app;
 
-// ✅ OPTIONAL (local only)
+// Local run
 if (process.env.NODE_ENV !== "production") {
   app.listen(PORT, () => {
     console.log(`Server running on http://localhost:${PORT}`);
