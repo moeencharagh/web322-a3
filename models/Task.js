@@ -1,3 +1,4 @@
+const pg = require("pg"); // force Vercel to include pg
 const { Sequelize, DataTypes } = require("sequelize");
 require("dotenv").config();
 
@@ -8,7 +9,8 @@ const sequelize = new Sequelize(process.env.PG_URI, {
       require: true,
       rejectUnauthorized: false
     }
-  }
+  },
+  dialectModule: pg // ✅ explicitly tell Sequelize to use pg
 });
 
 const Task = sequelize.define("Task", {
