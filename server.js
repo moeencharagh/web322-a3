@@ -1,43 +1,35 @@
 /********************************************************************************
 * WEB322 – Assignment 03
 *
-* I declare that this assignment is my own work in accordance with Seneca's
-* Academic Integrity Policy:
-*
-* https://www.senecapolytechnic.ca/about/policies/academic-integrity-policy.html
-*
 * Name: MUHAMMAD MOEEN CHARAGH
 * Student ID: 135347243
-* Date: TODAY
-*
 ********************************************************************************/
 
 const express = require("express");
 const mongoose = require("mongoose");
-const bcrypt = require("bcryptjs"); // ✅ FIXED: was "bcrypt" (native module crashes on Vercel)
+const bcrypt = require("bcryptjs");
 const session = require("client-sessions");
-const { Sequelize } = require("sequelize");
+const path = require("path"); // ✅ IMPORTANT
 require("dotenv").config();
 
 // Models
 const User = require("./models/User");
-const { Task } = require("./models/Task"); // ✅ FIXED: destructure since Task.js now exports { Task, sequelize }
+const { Task } = require("./models/Task");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 // ================= DATABASES =================
 
-// ✅ MongoDB (Users)
+// MongoDB (Users)
 mongoose.connect(process.env.MONGO_URI)
   .then(() => console.log("MongoDB connected"))
   .catch(err => console.log("MongoDB error:", err));
 
-// ✅ PostgreSQL (Neon - Tasks) — connection is handled inside Task.js
-// No need to create a second Sequelize instance here
-
 // ================= VIEW ENGINE =================
 
+// ✅ FIXED FOR VERCEL
+app.set("views", path.join(__dirname, "views"));
 app.set("view engine", "ejs");
 
 // ================= MIDDLEWARE =================
@@ -46,7 +38,7 @@ app.use(express.urlencoded({ extended: true }));
 
 app.use(session({
   cookieName: "session",
-  secret: process.env.SESSION_SECRET || "web322secret", // ✅ FIXED: use env variable
+  secret: process.env.SESSION_SECRET || "web322secret",
   duration: 30 * 60 * 1000
 }));
 
@@ -59,12 +51,15 @@ function ensureLogin(req, res, next) {
 
 // ================= ROUTES =================
 
-// app.get("/", (req, res) => {
-//   res.send("Server is running 🚀");
-// });
+// ✅ Better root handling
 app.get("/", (req, res) => {
-  res.redirect("/login");
+  if (req.session.user) {
+    res.redirect("/tasks");
+  } else {
+    res.redirect("/login");
+  }
 });
+
 app.get("/login", (req, res) => {
   res.render("login");
 });
@@ -111,7 +106,7 @@ app.post("/login", async (req, res) => {
     if (!match) return res.send("Wrong password.");
 
     req.session.user = {
-      id: user._id.toString(), // ✅ FIXED: convert ObjectId to string for PostgreSQL userId field
+      id: user._id.toString(),
       username: user.username,
       email: user.email
     };
@@ -130,7 +125,6 @@ app.get("/logout", (req, res) => {
 
 // ================= TASKS =================
 
-// View all tasks
 app.get("/tasks", ensureLogin, async (req, res) => {
   try {
     const tasks = await Task.findAll({
@@ -144,12 +138,10 @@ app.get("/tasks", ensureLogin, async (req, res) => {
   }
 });
 
-// Add page
 app.get("/tasks/add", ensureLogin, (req, res) => {
   res.render("addTask", { user: req.session.user });
 });
 
-// Add task
 app.post("/tasks/add", ensureLogin, async (req, res) => {
   const { title, description, dueDate } = req.body;
 
@@ -168,7 +160,6 @@ app.post("/tasks/add", ensureLogin, async (req, res) => {
   }
 });
 
-// Delete task
 app.post("/tasks/delete/:id", ensureLogin, async (req, res) => {
   try {
     await Task.destroy({
@@ -185,7 +176,6 @@ app.post("/tasks/delete/:id", ensureLogin, async (req, res) => {
   }
 });
 
-// Edit page
 app.get("/tasks/edit/:id", ensureLogin, async (req, res) => {
   try {
     const task = await Task.findOne({
@@ -204,7 +194,6 @@ app.get("/tasks/edit/:id", ensureLogin, async (req, res) => {
   }
 });
 
-// Update task
 app.post("/tasks/edit/:id", ensureLogin, async (req, res) => {
   const { title, description, dueDate } = req.body;
 
@@ -226,7 +215,6 @@ app.post("/tasks/edit/:id", ensureLogin, async (req, res) => {
   }
 });
 
-// Toggle status
 app.post("/tasks/status/:id", ensureLogin, async (req, res) => {
   try {
     const task = await Task.findOne({
@@ -259,4 +247,12 @@ app.post("/tasks/status/:id", ensureLogin, async (req, res) => {
 
 // ================= START =================
 
+// ✅ REQUIRED FOR VERCEL
 module.exports = app;
+
+// ✅ OPTIONAL (local only)
+if (process.env.NODE_ENV !== "production") {
+  app.listen(PORT, () => {
+    console.log(`Server running on http://localhost:${PORT}`);
+  });
+}
