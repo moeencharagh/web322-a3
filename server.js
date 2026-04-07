@@ -14,14 +14,14 @@
 
 const express = require("express");
 const mongoose = require("mongoose");
-const bcrypt = require("bcrypt");
+const bcrypt = require("bcryptjs"); // ✅ FIXED: was "bcrypt" (native module crashes on Vercel)
 const session = require("client-sessions");
 const { Sequelize } = require("sequelize");
 require("dotenv").config();
 
 // Models
 const User = require("./models/User");
-const Task = require("./models/Task");
+const { Task } = require("./models/Task"); // ✅ FIXED: destructure since Task.js now exports { Task, sequelize }
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -30,25 +30,11 @@ const PORT = process.env.PORT || 3000;
 
 // ✅ MongoDB (Users)
 mongoose.connect(process.env.MONGO_URI)
-  .then(() => console.log("MongoDB connected "))
+  .then(() => console.log("MongoDB connected"))
   .catch(err => console.log("MongoDB error:", err));
 
-// ✅ PostgreSQL (Neon - Tasks)
-const sequelize = new Sequelize(process.env.PG_URI, {
-  dialect: "postgres",
-  protocol: "postgres",
-  dialectOptions: {
-    ssl: {
-      require: true,
-      rejectUnauthorized: false
-    }
-  }
-});
-
-// Sync PostgreSQL
-sequelize.sync()
-  .then(() => console.log("PostgreSQL synced "))
-  .catch(err => console.log("PostgreSQL error:", err));
+// ✅ PostgreSQL (Neon - Tasks) — connection is handled inside Task.js
+// No need to create a second Sequelize instance here
 
 // ================= VIEW ENGINE =================
 
@@ -60,7 +46,7 @@ app.use(express.urlencoded({ extended: true }));
 
 app.use(session({
   cookieName: "session",
-  secret: "web322secret",
+  secret: process.env.SESSION_SECRET || "web322secret", // ✅ FIXED: use env variable
   duration: 30 * 60 * 1000
 }));
 
@@ -86,7 +72,7 @@ app.get("/register", (req, res) => {
 });
 
 app.get("/dashboard", ensureLogin, (req, res) => {
-  res.redirect("/tasks");
+  res.render("dashboard", { user: req.session.user });
 });
 
 // ================= AUTH =================
@@ -106,7 +92,7 @@ app.post("/register", async (req, res) => {
     res.redirect("/login");
   } catch (err) {
     console.log(err);
-    res.send("User already exists ");
+    res.send("User already exists or invalid input.");
   }
 });
 
@@ -116,21 +102,22 @@ app.post("/login", async (req, res) => {
   try {
     const user = await User.findOne({ username });
 
-    if (!user) return res.send("User not found ");
+    if (!user) return res.send("User not found.");
 
     const match = await bcrypt.compare(password, user.password);
 
-    if (!match) return res.send("Wrong password ");
+    if (!match) return res.send("Wrong password.");
 
     req.session.user = {
-      id: user._id,
-      username: user.username
+      id: user._id.toString(), // ✅ FIXED: convert ObjectId to string for PostgreSQL userId field
+      username: user.username,
+      email: user.email
     };
 
     res.redirect("/tasks");
   } catch (err) {
     console.log(err);
-    res.send("Login error ");
+    res.send("Login error.");
   }
 });
 
@@ -148,16 +135,16 @@ app.get("/tasks", ensureLogin, async (req, res) => {
       where: { userId: req.session.user.id }
     });
 
-    res.render("tasks", { tasks });
+    res.render("tasks", { tasks, user: req.session.user });
   } catch (err) {
     console.log(err);
-    res.send("Error loading tasks ");
+    res.send("Error loading tasks.");
   }
 });
 
 // Add page
 app.get("/tasks/add", ensureLogin, (req, res) => {
-  res.render("addTask");
+  res.render("addTask", { user: req.session.user });
 });
 
 // Add task
@@ -168,14 +155,14 @@ app.post("/tasks/add", ensureLogin, async (req, res) => {
     await Task.create({
       title,
       description,
-      dueDate,
+      dueDate: dueDate || null,
       userId: req.session.user.id
     });
 
     res.redirect("/tasks");
   } catch (err) {
     console.log(err);
-    res.send("Error adding task ");
+    res.send("Error adding task.");
   }
 });
 
@@ -192,7 +179,7 @@ app.post("/tasks/delete/:id", ensureLogin, async (req, res) => {
     res.redirect("/tasks");
   } catch (err) {
     console.log(err);
-    res.send("Error deleting task ");
+    res.send("Error deleting task.");
   }
 });
 
@@ -206,10 +193,12 @@ app.get("/tasks/edit/:id", ensureLogin, async (req, res) => {
       }
     });
 
-    res.render("editTask", { task });
+    if (!task) return res.send("Task not found.");
+
+    res.render("editTask", { task, user: req.session.user });
   } catch (err) {
     console.log(err);
-    res.send("Error loading task ");
+    res.send("Error loading task.");
   }
 });
 
@@ -219,7 +208,7 @@ app.post("/tasks/edit/:id", ensureLogin, async (req, res) => {
 
   try {
     await Task.update(
-      { title, description, dueDate },
+      { title, description, dueDate: dueDate || null },
       {
         where: {
           id: req.params.id,
@@ -231,7 +220,7 @@ app.post("/tasks/edit/:id", ensureLogin, async (req, res) => {
     res.redirect("/tasks");
   } catch (err) {
     console.log(err);
-    res.send("Error updating task ");
+    res.send("Error updating task.");
   }
 });
 
@@ -244,6 +233,8 @@ app.post("/tasks/status/:id", ensureLogin, async (req, res) => {
         userId: req.session.user.id
       }
     });
+
+    if (!task) return res.send("Task not found.");
 
     const newStatus = task.status === "pending" ? "completed" : "pending";
 
@@ -260,13 +251,10 @@ app.post("/tasks/status/:id", ensureLogin, async (req, res) => {
     res.redirect("/tasks");
   } catch (err) {
     console.log(err);
-    res.send("Error updating status ");
+    res.send("Error updating status.");
   }
 });
 
 // ================= START =================
 
-// app.listen(PORT, () => {
-//   console.log(`Server running on http://localhost:${PORT}`);
-// });
 module.exports = app;

@@ -1,15 +1,15 @@
 const { Sequelize, DataTypes } = require("sequelize");
 require("dotenv").config();
 
-const sequelize = new Sequelize(
-  process.env.PG_DATABASE,
-  process.env.PG_USER,
-  process.env.PG_PASSWORD,
-  {
-    host: process.env.PG_HOST,
-    dialect: "postgres"
+const sequelize = new Sequelize(process.env.PG_URI, {
+  dialect: "postgres",
+  dialectOptions: {
+    ssl: {
+      require: true,
+      rejectUnauthorized: false
+    }
   }
-);
+});
 
 const Task = sequelize.define("Task", {
   title: {
@@ -32,9 +32,4 @@ const Task = sequelize.define("Task", {
   }
 });
 
-// 🔥 THIS LINE IS IMPORTANT
-sequelize.sync()
-  .then(() => console.log("PostgreSQL synced ✅"))
-  .catch(err => console.log("PG error:", err));
-
-module.exports = Task;
+module.exports = { Task, sequelize };
