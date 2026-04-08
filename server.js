@@ -46,6 +46,19 @@ app.use(session({
   duration: 30 * 60 * 1000
 }));
 
+
+app.use(async (req, res, next) => {
+  try {
+    if (mongoose.connection.readyState !== 1) {
+      await mongoose.connect(process.env.MONGO_URI);
+      console.log("MongoDB connected");
+    }
+    next();
+  } catch (err) {
+    console.log("Mongo error:", err);
+    res.send("Database connection error.");
+  }
+});
 // ================= AUTH MIDDLEWARE =================
 
 function ensureLogin(req, res, next) {
